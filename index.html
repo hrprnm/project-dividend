@@ -41,6 +41,7 @@
     
     .badge { padding: 6px 10px; border-radius: 12px; font-weight: 700; font-size: 13px; display: inline-block; }
     .badge-profit { background-color: var(--profit-bg); color: var(--profit-text); }
+    .badge-loss { background-color: var(--loss-bg); color: var(--loss-text); }
   </style>
 </head>
 <body>
@@ -48,49 +49,99 @@
   <header><h1>Project Dividend</h1></header>
 
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('all-time')">All-Time</button>
-    <button class="tab-btn" onclick="switchTab('tahunan')">Tahunan</button>
+    <button class="tab-btn active" onclick="switchTab(event, 'all-time')">All-Time</button>
+    <button class="tab-btn" onclick="switchTab(event, 'tahunan')">Tahunan</button>
   </div>
 
   <div class="dashboard">
     <div id="all-time" class="tab-content active">
       <div class="card-grid">
-        <div class="card full-width"><div class="card-title">Total Return</div><div class="card-value val-profit" id="val-total-return">...</div></div>
-        <div class="card"><div class="card-title">Total Dividen</div><div class="card-value" id="val-total-dividen">...</div></div>
-        <div class="card"><div class="card-title">Yield on Cost</div><div class="card-value" id="val-yoc">...</div></div>
+        <div class="card full-width">
+          <div class="card-title">Total Return</div>
+          <div class="card-value val-profit" id="val-total-return">...</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Total Dividen</div>
+          <div class="card-value" id="val-total-dividen">...</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Yield on Cost</div>
+          <div class="card-value" id="val-yoc">...</div>
+        </div>
       </div>
       <div class="card full-width">
         <div class="card-title">Resume Saham</div>
         <table>
           <thead><tr><th>Ticker</th><th>Avg Price</th><th>Return</th></tr></thead>
-          <tbody id="resume-table-body"><tr><td>Memuat data...</td><td></td><td></td></tr></tbody>
+          <tbody id="resume-table-body">
+            <tr><td colspan="3">Memuat data...</td></tr>
+          </tbody>
         </table>
       </div>
     </div>
-    <div id="tahunan" class="tab-content"><div class="card full-width"><div class="card-title">Data Tahunan</div><p>Segera hadir...</p></div></div>
+    <div id="tahunan" class="tab-content">
+      <div class="card full-width"><div class="card-title">Data Tahunan</div><p>Segera hadir...</p></div>
+    </div>
   </div>
 
   <script>
-    function switchTab(tabId) {
+    // Fungsi Pindah Tab
+    function switchTab(evt, tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
       document.getElementById(tabId).classList.add('active');
-      event.target.classList.add('active');
+      if (evt && evt.currentTarget) {
+        evt.currentTarget.classList.add('active');
+      }
     }
 
-    if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+    // Registrasi Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+    }
 
+    // Fungsi Fetch dan Render Data ke Layar
     async function fetchDashboardData() {
-      // GANTI URL DI BAWAH INI
       const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfiyf5tO0dRNlX1I-lTc9RQ27sNMAJI0pl-yMGFdP2x-3MQgv8fIHX9m6tFEJ7Vhm0/exec?token=12345';
+      
       try {
         const response = await fetch(APP_SCRIPT_URL);
         const data = await response.json();
-        console.log('Data sukses:', data);
+        
+        // 1. Render data ke kartu atas
+        if (data.totalReturn !== undefined) document.getElementById('val-total-return').innerText = data.totalReturn;
+        if (data.totalDividen !== undefined) document.getElementById('val-total-dividen').innerText = data.totalDividen;
+        if (data.yoc !== undefined) document.getElementById('val-yoc').innerText = data.yoc;
+
+        // 2. Render data ke tabel Resume Saham
+        if (data.resumeSaham && Array.isArray(data.resumeSaham) && data.resumeSaham.length > 0) {
+          let tbodyHTML = '';
+          data.resumeSaham.forEach(row => {
+            const ticker = row[0] || '-';
+            const avgPrice = row[1] || '-';
+            const returnVal = row[2] || '0%';
+            
+            // Cek apakah ada tanda minus (-) untuk warna badge
+            const isLoss = String(returnVal).includes('-');
+            const badgeClass = isLoss ? 'badge-loss' : 'badge-profit';
+
+            tbodyHTML += `<tr>
+              <td><strong>${ticker}</strong></td>
+              <td>${avgPrice}</td>
+              <td><span class="badge ${badgeClass}">${returnVal}</span></td>
+            </tr>`;
+          });
+          document.getElementById('resume-table-body').innerHTML = tbodyHTML;
+        }
+
       } catch (error) {
-        console.error('Offline / Gagal.', error);
+        console.error('Gagal memuat data:', error);
+        document.getElementById('val-total-return').innerText = 'Offline';
+        document.getElementById('resume-table-body').innerHTML = '<tr><td colspan="3">Gagal mengambil data.</td></tr>';
       }
     }
+
+    // Eksekusi Ambil Data Saat Aplikasi Dibuka
     fetchDashboardData();
   </script>
 </body>
