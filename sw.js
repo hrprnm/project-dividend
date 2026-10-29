@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dividend-pwa-pastel-v1';
+const CACHE_NAME = 'dividend-pwa-pastel-v3';
 const urlsToCache = [
   '/',
   '/index.html',
